@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Living Archive | Portfolio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <style>
+        /* 1. 全局样式：向朱文宇风格看齐 */
+        :root {
+            --bg: #fdfdfd;
+            --text: #1a1a1a;
+            --accent: #4a5d4e;
+            --overlay: rgba(255, 255, 255, 0.95);
+            --gray: #999;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: "Hiragino Mincho ProN", "Source Serif Pro", serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* 2. 跨页面全局导航 */
+        .global-nav {
+            position: fixed;
+            top: 0; width: 100%;
+            padding: 40px 8%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            background: rgba(253, 253, 253, 0.9);
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--gray);
+            font-size: 13px;
+            letter-spacing: 2px;
+            margin-left: 40px;
+            transition: 0.3s;
+        }
+
+        .nav-links a.active, .nav-links a:hover { color: var(--text); font-weight: bold; }
+
+        /* 3. 页面容器样式 */
+        section { min-height: 100vh; padding: 150px 8% 100px; display: none; }
+        section.active { display: block; } /* 逻辑展示控制 */
+
+        /* --- PORTFOLIOS 页面样式 --- */
+        .filter-nav { display: flex; gap: 30px; margin-bottom: 60px; }
+        .filter-btn { cursor: pointer; color: var(--gray); font-size: 13px; transition: 0.3s; }
+        .filter-btn.active { color: var(--text); font-weight: bold; border-bottom: 1px solid var(--text); }
+
+        /* 使用 CSS Columns 实现 masonry 风格，允许自由排列以消除大留白 */
+        .portfolio-grid { column-count: 2; column-gap: 36px; }
+
+        /* 作品卡：以图片为主，不裁切（保持图片完整） */
+        .project-item {
+            display: inline-block; width: 100%; position: relative; overflow: hidden;
+            background: #fafafa; vertical-align: top; margin-bottom: 36px; transition: transform 0.28s ease;
+        }
+
+        /* 图片完整展示：宽度填满，保留原始纵横比，不裁切 */
+        .project-item img { width: 100%; height: auto; object-fit: contain; display: block; transition: transform 0.6s ease; max-height: 520px; }
+
+        /* Hover 效果（不裁切图片，仅放大视觉感受） */
+        .project-item:hover img { transform: scale(1.03); }
+        .project-item:hover { transform: translateY(-6px); }
+
+        /* 在窄屏上保证每项占满一行 */
+        @media (max-width: 900px) {
+            .portfolio-grid { column-count: 1; column-gap: 20px; }
+            .project-item { width: 100%; margin-bottom: 18px; }
+            .project-item img { max-height: 360px; }
+        }
+        
+        /* Hover Overlay：改为悬停显示 3 秒后消失（不再从底部滑入） */
+        .overlay {
+            position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+            background: var(--overlay); opacity: 0;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px;
+            pointer-events: none;
+        }
+
+        @keyframes overlay-show {
+            0% { opacity: 1; }
+            99% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* 鼠标悬停时触发动画：显示 1.5 秒后自动消失（即使仍在悬停） */
+        .project-item:hover .overlay {
+            animation: overlay-show 1.5s forwards;
+            pointer-events: auto;
+        }
+
+        /* 始终显示的说明文字（在图片下方） */
+        .caption { padding: 10px 12px; color: #333; font-size: 0.95rem; line-height: 1.4; }
+        .caption h4 { margin-bottom: 6px; font-size: 1rem; }
+        .caption p { margin: 0; color: #555; font-size: 0.95rem; }
+        .project-item:hover img { transform: scale(1.05); }
+
+        /* --- ABOUT ME（左右两栏布局）页面样式 --- */
+        .about-section { display: flex; gap: 60px; align-items: center; max-width: 1100px; margin: 0 auto; }
+        .about-content { flex: 1 1 60%; }
+        .about-title { font-size: 2rem; margin-bottom: 20px; letter-spacing: 1px; }
+        .about-text { color: #444; font-size: 1.05rem; line-height: 1.9; margin-bottom: 10px; }
+        .about-education { margin-bottom: 18px; }
+        .about-education .grad-time { display: inline-block; margin-left: 48px; color: #333; }
+        @media (max-width: 900px) {
+            .about-education .grad-time { margin-left: 12px; }
+        }
+        .about-photo { flex: 0 0 320px; height: 420px; background: #efefef; display: flex; align-items: center; justify-content: center; border-radius: 6px; overflow: hidden; }
+        .about-photo img { width: 100%; height: 100%; object-fit: cover; }
+        @media (max-width: 900px) {
+            .about-section { flex-direction: column-reverse; padding: 0 20px; }
+            .about-photo { width: 100%; height: 320px; }
+        }
+
+        /* --- PORTFOLIOS 子模块样式 --- */
+        .portfolio-category { margin-bottom: 40px; }
+        /* 隐藏每个子模块顶部重复的大标题，避免页面出现纵向散落的大字 */
+        .portfolio-category h3 { display: none; }
+
+        /* --- STORYLINE 样式 (timeline) --- */
+        .storyline { max-width: 900px; margin: 60px auto 0; padding: 0 8%; }
+        .storyline-header { font-size: 1.6rem; margin-bottom: 18px; color: var(--text); }
+        /* 更紧凑的条目间距，年份组之间留白更大以区分年份 */
+        .storyline-item { margin-bottom: 8px; padding-left: 28px; border-left: 2px solid var(--accent); position: relative; }
+        .storyline-group { margin-bottom: 40px; }
+        .storyline-year { color: var(--accent); font-weight: 700; display: block; margin-bottom: 18px; font-size: 1.35rem; position: relative; }
+        .storyline-year::before { content: ''; position: absolute; left: -36px; top: 4px; width: 12px; height: 12px; background: var(--accent); border-radius: 50%; }
+        .storyline-title { font-size: 0.95rem; margin-bottom: 6px; }
+        .storyline-text { color: #555; line-height: 1.6; font-size: 0.95rem; }
+
+        /* --- CONTACT 页面样式 --- */
+        #contact { text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .contact-email { 
+            font-size: clamp(1.5rem, 6vw, 5rem); color: var(--text); 
+            text-decoration: none; border-bottom: 2px solid var(--text); 
+        }
+
+    </style>
+</head>
+    <body>
+
+    <nav class="global-nav">
+        <div style="font-weight: bold; letter-spacing: 2px;">JOURNEY ARCHIVE</div>
+        <div class="nav-links">
+            <a href="#" onclick="showPage('about')" id="link-about" class="active">ABOUT ME</a>
+            <a href="#" onclick="showPage('portfolios')" id="link-portfolios">PORTFOLIOS</a>
+            <a href="#" onclick="showPage('contact')" id="link-contact">CONTACT</a>
+        </div>
+    </nav>
+
+    <!-- ABOUT ME：放在 Portfolios 前 -->
+    <section id="about" class="active">
+        <div class="about-section">
+            <div class="about-content">
+                <h2 class="about-title">关于我</h2>
+                <p class="about-text about-education"><strong>教育经历：</strong>浙江传媒学院 | 广告学<span class="grad-time"><strong>毕业时间：</strong>2027.6</span></p>
+                <p class="about-text">· 数据分析：Excel、SQL、SPSS（可进行基础数据整理、分析与可视化）</p>
+                <p class="about-text">· 内容制作：PS、PR、剪映、可画、秀米（可独立完成海报、图文、短视频内容）</p>
+                <p class="about-text">· 策划及执行：活动策划、跨部门协作、项目推进</p>
+                <p class="about-text">· 文案能力：擅长网感文案、情感叙事、品牌沟通文案</p>
+            </div>
+            <div class="about-photo" aria-label="照片占位">
+                <img src="assets/about-photo.jpg" alt="个人照片占位">
+            </div>
+        </div>
+
+        <!-- 新增：Storyline（倒叙） -->
+        <div class="storyline" aria-label="故事线">
+            <h3 class="storyline-header">Storyline</h3>
+
+            <div class="storyline-group">
+                <div class="storyline-item">
+                    <span class="storyline-year">2025</span>
+                    <div class="storyline-title">趣多多品牌焕新</div>
+                    <div class="storyline-text"></div>
+                </div>
+                <div class="storyline-item">
+                    <div class="storyline-title">《脱口秀和Ta的朋友们》第二季</div>
+                    <div class="storyline-text"></div>
+                </div>
+                <div class="storyline-item">
+                    <div class="storyline-title">会展策划大赛——《民族万象》</div>
+                    <div class="storyline-text"></div>
+                </div>
+                <div class="storyline-item">
+                    <div class="storyline-title">大学生广告大赛——《三福—潮生万象》</div>
+                    <div class="storyline-text"></div>
+                </div>
+            </div>
+
+            <div class="storyline-group">
+                <div class="storyline-item">
+                    <span class="storyline-year">2024</span>
+                    <div class="storyline-title">赞意广告公司（4A）</div>
+                    <div class="storyline-text"></div>
+                </div>
+                <div class="storyline-item">
+                    <div class="storyline-title">互联网+大学生创新创业大赛——《星盾宝》保险产品设计</div>
+                    <div class="storyline-text"></div>
+                </div>
+                <div class="storyline-item">
+                    <div class="storyline-title">会展策划大赛——《情绪的世界》</div>
+                    <div class="storyline-text"></div>
+                </div>
+                <div class="storyline-item">
+                    <div class="storyline-title">湖南人民广播电台</div>
+                    <div class="storyline-text"></div>
+                </div>
+                <div class="storyline-item">
+                    <div class="storyline-title">市场调查大赛——《爱与梦想，都要棋逢对手》乙游市场消费现状调查</div>
+                    <div class="storyline-text"></div>
+                </div>
+            </div>
+
+            <div class="storyline-group">
+                <div class="storyline-item">
+                    <span class="storyline-year">2023</span>
+                    <div class="storyline-title">墨尔本大学全球就业力提升项目</div>
+                    <div class="storyline-text"></div>
+                </div>
+                <div class="storyline-item">
+                    <div class="storyline-title">学院奖——《爱要说出来》</div>
+                    <div class="storyline-text"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PORTFOLIOS：分为四个子部分 -->
+    <section id="portfolios">
+        <nav class="filter-nav" aria-label="作品分类">
+            <span class="filter-btn active" data-cat="all">全部</span>
+            <span class="filter-btn" data-cat="branding">品牌营销</span>
+            <span class="filter-btn" data-cat="content">内容策划</span>
+            <span class="filter-btn" data-cat="insight">用户洞察</span>
+            <span class="filter-btn" data-cat="gallery">素材画廊</span>
+        </nav>
+        <div class="portfolio-category" id="branding">
+            <div class="portfolio-grid">
+                <div class="project-item" data-cat="branding">
+                    <img src="assets/branding-1.jpg" alt="品牌焕新活动">
+                    <div class="overlay"><h3>品牌焕新活动</h3><p>“趣疯一下，好多了”情绪释放主题营销</p></div>
+                    <div class="caption"><h4>品牌焕新活动</h4><p>“趣疯一下，好多了”情绪释放主题营销</p></div>
+                </div>
+                <div class="project-item" data-cat="branding">
+                    <img src="assets/branding-2.jpg" alt="品牌焕新活动">
+                    <div class="overlay"><h3>品牌焕新活动</h3><p>趣多多品牌年轻化：基于“发疯”现象的策略提案</p></div>
+                    <div class="caption"><h4>品牌焕新活动</h4><p>趣多多品牌年轻化：基于“发疯”现象的策略提案</p></div>
+                </div>
+                <div class="project-item" data-cat="branding">
+                    <img src="assets/branding-3.jpg" alt="品牌战略升级">
+                    <div class="overlay"><h3>品牌战略升级</h3><p>全链路有机猪肉品牌战略规划</p></div>
+                    <div class="caption"><h4>品牌战略升级</h4><p>全链路有机猪肉品牌战略规划</p></div>
+                </div>
+                <div class="project-item" data-cat="branding">
+                    <img src="assets/branding-4.jpg" alt="品牌传播矩阵">
+                    <div class="overlay"><h3>品牌传播矩阵</h3><p>不同品牌案例</p></div>
+                    <div class="caption"><h4>品牌传播矩阵</h4><p>不同品牌案例</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="portfolio-category" id="content">
+            <div class="portfolio-grid">
+                <div class="project-item" data-cat="content">
+                    <img src="assets/content-1.jpg" alt="大型活动策划">
+                    <div class="overlay"><h3>大型活动策划</h3><p>“温差感”主题校园达人秀</p></div>
+                    <div class="caption"><h4>大型活动策划</h4><p>“温差感”主题校园达人秀</p></div>
+                </div>
+                <div class="project-item" data-cat="content">
+                    <img src="assets/content-2.jpg" alt="展会方案设计">
+                    <div class="overlay"><h3>展会方案设计</h3><p>沉浸式民族文化体验展：AIGC+任务驱动+场景化体验</p></div>
+                    <div class="caption"><h4>展会方案设计</h4><p>沉浸式民族文化体验展：AIGC+任务驱动+场景化体验</p></div>
+                </div>
+                <div class="project-item" data-cat="content">
+                    <img src="assets/content-3.jpg" alt="大型活动策划">
+                    <div class="overlay"><h3>大型活动策划</h3><p>社团十八周年春日游园会全案视觉与活动流程设计</p></div>
+                    <div class="caption"><h4>大型活动策划</h4><p>社团十八周年春日游园会全案视觉与活动流程设计</p></div>
+                </div>
+                <div class="project-item" data-cat="content">
+                    <img src="assets/content-4.jpg" alt="展会方案设计">
+                    <div class="overlay"><h3>展会方案设计</h3><p>“情绪的世界”AIGC生活哲学展：从情绪管理到生活思考</p></div>
+                    <div class="caption"><h4>展会方案设计</h4><p>“情绪的世界”AIGC生活哲学展：从情绪管理到生活思考</p></div>
+                </div>
+                <div class="project-item" data-cat="content">
+                    <img src="assets/content-5.jpg" alt="影展策划">
+                    <div class="overlay"><h3>影展策划</h3><p>毕业班短片作品展——“美丽新世界”</p></div>
+                    <div class="caption"><h4>影展策划</h4><p>毕业班短片作品展——“美丽新世界”</p></div>
+                </div>
+                <div class="project-item" data-cat="content">
+                    <img src="assets/content-6.jpg" alt="马年晚会策划">
+                    <div class="overlay"><h3>马年晚会策划</h3><p>马年迎春晚会全案与执行</p></div>
+                    <div class="caption"><h4>马年晚会策划</h4><p>马年迎春晚会全案与执行</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="portfolio-category" id="insight">
+            <div class="portfolio-grid">
+                <div class="project-item" data-cat="insight">
+                    <img src="assets/insight-1.jpg" alt="平台数据分析">
+                    <div class="overlay"><h3>平台数据分析</h3><p>小红书汽车内容从参数转向生活化场景</p></div>
+                    <div class="caption"><h4>平台数据分析</h4><p>小红书汽车内容从参数转向生活化场景</p></div>
+                </div>
+                <div class="project-item" data-cat="insight">
+                    <img src="assets/insight-2.jpg" alt="产品策略规划">
+                    <div class="overlay"><h3>产品策略规划</h3><p>明星塌房保险产品方案设计</p></div>
+                    <div class="caption"><h4>产品策略规划</h4><p>明星塌房保险产品方案设计</p></div>
+                </div>
+                <div class="project-item" data-cat="insight">
+                    <img src="assets/insight-3.jpg" alt="营销效果分析">
+                    <div class="overlay"><h3>营销效果分析</h3><p>小红书品牌投放数据跟踪与内容策略优化复盘</p></div>
+                    <div class="caption"><h4>营销效果分析</h4><p>小红书品牌投放数据跟踪与内容策略优化复盘</p></div>
+                </div>
+                <div class="project-item" data-cat="insight">
+                    <img src="assets/insight-4.jpg" alt="定性访谈研究">
+                    <div class="overlay"><h3>定性访谈研究</h3><p>挖掘用户真实诉求与阻力</p></div>
+                    <div class="caption"><h4>定性访谈研究</h4><p>挖掘用户真实诉求与阻力</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="portfolio-category" id="gallery">
+            <div class="portfolio-grid">
+                <!-- 三个素材项：保留半透明覆盖层 -->
+                <div class="project-item" data-cat="gallery">
+                    <img src="assets/image-1.png" alt="剧照《放手》">
+                    <div class="overlay"><h3>剧照</h3><p>《放手》</p></div>
+                    <div class="caption"><h4>剧照</h4><p>《放手》</p></div>
+                </div>
+                <div class="project-item" data-cat="gallery">
+                    <img src="assets/image-2.png" alt="剧照《有点巧》">
+                    <div class="overlay"><h3>剧照</h3><p>《有点巧》</p></div>
+                    <div class="caption"><h4>剧照</h4><p>《有点巧》</p></div>
+                </div>
+                <div class="project-item" data-cat="gallery">
+                    <img src="assets/image-3.png" alt="UI作品《星盾宝》">
+                    <div class="overlay"><h3>UI作品</h3><p>《星盾宝》保险产品交互界面设计</p></div>
+                    <div class="caption"><h4>UI作品</h4><p>《星盾宝》保险产品交互界面设计</p></div>
+                </div>
+
+                <!-- 其余现有素材直接展示，移除 overlay -->
+                <!-- 已移除：影像集、插画系列、素材 4 -->
+                <div class="project-item" data-cat="gallery">
+                    <img src="assets/image-5.png" alt="素材 5">
+                </div>
+                <div class="project-item" data-cat="gallery">
+                    <img src="assets/image-6.png" alt="素材 6">
+                </div>
+                <div class="project-item" data-cat="gallery">
+                    <img src="assets/image-7.png" alt="素材 7">
+                </div>
+                <div class="project-item" data-cat="gallery">
+                    <img src="assets/image-8.png" alt="素材 8">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact">
+        <p style="color: var(--gray); margin-bottom: 18px;">GET IN TOUCH</p>
+        <div style="color: var(--text); margin-bottom: 12px;">电话 / WX：<a href="tel:18003405445" style="color: var(--text); text-decoration: none;">18003405445</a></div>
+        <a href="mailto:1418462469@qq.com" class="contact-email">1418462469@qq.com</a>
+        <div style="margin-top: 36px; color: var(--gray);">欢迎通过电话/微信或邮件联系我</div>
+    </section>
+
+    <script>
+        // 1. 页面切换逻辑
+        function showPage(pageId) {
+            // 隐藏所有页面
+            document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+            // 显示目标页面
+            document.getElementById(pageId).classList.add('active');
+            // 更新导航样式
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            document.getElementById('link-' + pageId).classList.add('active');
+            // 入场动画
+            gsap.from("#" + pageId, { opacity: 0, y: 20, duration: 0.8, ease: "power2.out" });
+        }
+
+        // 2. 作品实时过滤（基于 data-cat）
+        const filterBtns = document.querySelectorAll('#portfolios .filter-btn');
+        const projects = document.querySelectorAll('#portfolios .project-item');
+
+        const grid = document.querySelector('#portfolios .portfolio-grid');
+
+        // 将“全部”视图的作品随机打乱排列，优先减少留白
+        function arrangeAll() {
+            const allGrid = document.querySelector('#portfolios .portfolio-grid');
+            const items = Array.from(document.querySelectorAll('#portfolios .project-item'));
+            // Fisher-Yates shuffle
+            for (let i = items.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [items[i], items[j]] = [items[j], items[i]];
+            }
+            items.forEach(el => allGrid.appendChild(el));
+        }
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const cat = btn.getAttribute('data-cat');
+
+                projects.forEach(p => {
+                    const pcat = p.dataset.cat || '';
+                    if (cat === 'all' || pcat === cat) {
+                        p.style.display = 'block';
+                        gsap.to(p, { opacity: 1, scale: 1, duration: 0.35 });
+                    } else {
+                        gsap.to(p, { opacity: 0, scale: 0.97, duration: 0.22, onComplete: () => p.style.display = 'none' });
+                    }
+                });
+
+                if (cat === 'all') {
+                    // 小延迟以确保 display 更新后重排 DOM，防止动画冲突
+                    setTimeout(arrangeAll, 80);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
